@@ -1,0 +1,8 @@
+{
+  "name": "المساعد البصري الذكي",
+  "description": "تطبيق يعتمد على الذكاء الاصطناعي لوصف ما تراه الكاميرا بشكل فوري ومسموع.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
