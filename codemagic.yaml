@@ -1,0 +1,65 @@
+workflows:
+  android-release:
+    name: Android Release Build
+    max_build_duration: 60
+    instance_type: mac_mini_m1
+    
+    environment:
+      node: 20.11.0
+      java: 21
+      groups:
+        - keys # 👈 متنساش تضيف المفتاح في الموقع بنفس اسم الجروب ده
+      vars:
+        PACKAGE_NAME: com.falcon.visual # 👈 غيرنا الاسم عشان ميتعارضش مع القديم
+        
+    scripts:
+      - name: Clean and Install Dependencies
+        script: |
+          npm cache clean --force
+          npm install --legacy-peer-deps
+          # تثبيت كل المكتبات اللي المساعد بيحتاجها
+          npm install react-router-dom lucide-react framer-motion @capacitor/android @capacitor/camera @capacitor/assets @google/genai --legacy-peer-deps
+          
+      - name: Build Web App
+        script: |
+          # تمرير المفتاح المخفي
+          export VITE_GEMINI_KEY=$VITE_GEMINI_KEY
+          npm run build
+          
+      - name: Setup Android Platform
+        script: |
+          npx cap add android || true
+          npx cap sync android
+
+      - name: Auto-Fix Icon
+        script: |
+          mkdir -p assets
+          find . -maxdepth 1 -name "*.png" -not -name "icon.png" -exec mv {} assets/icon.png \;
+          if [ -f "icon.png" ]; then mv icon.png assets/icon.png; fi
+          if [ -f "assets/icon.png" ]; then npx capacitor-assets generate --android; fi
+
+      - name: Inject Permissions (Camera & Audio)
+        script: |
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          # 👇 ضفنا إذن الميكروفون (RECORD_AUDIO) عشان ده مساعد صوتي
+          PERMS='<uses-permission android:name="android.permission.INTERNET" /><uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" /><uses-permission android:name="android.permission.CAMERA" /><uses-permission android:name="android.permission.RECORD_AUDIO" />'
+          sed -i '' "s|</manifest>|$PERMS</manifest>|" $MANIFEST
+          sed -i '' 's|<application|<application android:usesCleartextTraffic="true"|' $MANIFEST
+          
+      - name: Generate Key, Build, and Sign
+        script: |
+          keytool -genkey -v -keystore fresh.keystore -alias freshkey -keyalg RSA -keysize 2048 -validity 10000 -storepass 123456 -keypass 123456 -dname "CN=FalconVisual, OU=Dev, O=Falcon, L=Cairo, S=Cairo, C=EG"
+          
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleRelease
+          cd ..
+          
+          BUILD_TOOLS="$ANDROID_SDK_ROOT/build-tools/34.0.0"
+          UNSIGNED_APK="android/app/build/outputs/apk/release/app-release-unsigned.apk"
+          
+          "$BUILD_TOOLS/zipalign" -v -p 4 "$UNSIGNED_APK" app-release-aligned.apk
+          "$BUILD_TOOLS/apksigner" sign --ks fresh.keystore --ks-pass pass:123456 --key-pass pass:123456 --ks-key-alias freshkey --out app-release.apk app-release-aligned.apk
+
+    artifacts:
+      - app-release.apk
