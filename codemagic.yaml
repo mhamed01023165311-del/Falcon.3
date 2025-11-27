@@ -1,6 +1,6 @@
 workflows:
   android-release:
-    name: Android Release Build
+    name: Visual Assistant Build
     max_build_duration: 60
     instance_type: mac_mini_m1
     
@@ -8,21 +8,21 @@ workflows:
       node: 20.11.0
       java: 21
       groups:
-        - keys # 👈 متنساش تضيف المفتاح في الموقع بنفس اسم الجروب ده
+        - keys
       vars:
-        PACKAGE_NAME: com.falcon.visual # 👈 غيرنا الاسم عشان ميتعارضش مع القديم
+        PACKAGE_NAME: com.falcon.visual
         
     scripts:
       - name: Clean and Install Dependencies
         script: |
           npm cache clean --force
           npm install --legacy-peer-deps
-          # تثبيت كل المكتبات اللي المساعد بيحتاجها
+          # 👇 التعديل هنا: ضفنا المكتبة الأساسية الناقصة
+          npm install @capacitor/core @capacitor/cli --legacy-peer-deps
           npm install react-router-dom lucide-react framer-motion @capacitor/android @capacitor/camera @capacitor/assets @google/genai --legacy-peer-deps
           
       - name: Build Web App
         script: |
-          # تمرير المفتاح المخفي
           export VITE_GEMINI_KEY=$VITE_GEMINI_KEY
           npm run build
           
@@ -38,11 +38,10 @@ workflows:
           if [ -f "icon.png" ]; then mv icon.png assets/icon.png; fi
           if [ -f "assets/icon.png" ]; then npx capacitor-assets generate --android; fi
 
-      - name: Inject Permissions (Camera & Audio)
+      - name: Inject Permissions (Camera & Mic)
         script: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
-          # 👇 ضفنا إذن الميكروفون (RECORD_AUDIO) عشان ده مساعد صوتي
-          PERMS='<uses-permission android:name="android.permission.INTERNET" /><uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" /><uses-permission android:name="android.permission.CAMERA" /><uses-permission android:name="android.permission.RECORD_AUDIO" />'
+          PERMS='<uses-permission android:name="android.permission.INTERNET" /><uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" /><uses-permission android:name="android.permission.CAMERA" /><uses-permission android:name="android.permission.RECORD_AUDIO" /><uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />'
           sed -i '' "s|</manifest>|$PERMS</manifest>|" $MANIFEST
           sed -i '' 's|<application|<application android:usesCleartextTraffic="true"|' $MANIFEST
           
