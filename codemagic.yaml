@@ -17,9 +17,8 @@ workflows:
         script: |
           npm cache clean --force
           npm install --legacy-peer-deps
-          # 👇 التعديل هنا: ضفنا المكتبة الأساسية الناقصة
-          npm install @capacitor/core @capacitor/cli --legacy-peer-deps
-          npm install react-router-dom lucide-react framer-motion @capacitor/android @capacitor/camera @capacitor/assets @google/genai --legacy-peer-deps
+          # تثبيت كل المكتبات دفعة واحدة لضمان عدم نسيان شيء
+          npm install react-router-dom lucide-react @capacitor/core @capacitor/android @capacitor/camera @capacitor/assets @google/genai --legacy-peer-deps
           
       - name: Build Web App
         script: |
@@ -38,16 +37,16 @@ workflows:
           if [ -f "icon.png" ]; then mv icon.png assets/icon.png; fi
           if [ -f "assets/icon.png" ]; then npx capacitor-assets generate --android; fi
 
-      - name: Inject Permissions (Camera & Mic)
+      - name: Inject Permissions
         script: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
-          PERMS='<uses-permission android:name="android.permission.INTERNET" /><uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" /><uses-permission android:name="android.permission.CAMERA" /><uses-permission android:name="android.permission.RECORD_AUDIO" /><uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />'
+          PERMS='<uses-permission android:name="android.permission.INTERNET" /><uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" /><uses-permission android:name="android.permission.CAMERA" /><uses-permission android:name="android.permission.RECORD_AUDIO" />'
           sed -i '' "s|</manifest>|$PERMS</manifest>|" $MANIFEST
           sed -i '' 's|<application|<application android:usesCleartextTraffic="true"|' $MANIFEST
           
       - name: Generate Key, Build, and Sign
         script: |
-          keytool -genkey -v -keystore fresh.keystore -alias freshkey -keyalg RSA -keysize 2048 -validity 10000 -storepass 123456 -keypass 123456 -dname "CN=FalconVisual, OU=Dev, O=Falcon, L=Cairo, S=Cairo, C=EG"
+          keytool -genkey -v -keystore fresh.keystore -alias freshkey -keyalg RSA -keysize 2048 -validity 10000 -storepass 123456 -keypass 123456 -dname "CN=Falcon, OU=Dev, O=FalconApp, L=Cairo, S=Cairo, C=EG"
           
           cd android
           chmod +x gradlew
